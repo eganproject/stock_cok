@@ -1,6 +1,12 @@
 /.phpunit.cache
 /node_modules
-/public/build
+
+# CATATAN: /public/build SENGAJA TIDAK diabaikan.
+# Server shared hosting (Hostinger) tidak punya Node.js, sehingga hasil
+# `npm run build` harus ikut ter-commit agar terbawa saat deploy.
+# Tanpa ini muncul error: "Vite manifest not found at .../public/build/manifest.json".
+# Jalankan `npm run build` sebelum commit setiap kali mengubah CSS/JS.
+
 /public/hot
 /public/storage
 /storage/*.key

@@ -66,17 +66,36 @@ folder `public`.
 
 ---
 
-## 2. Berkas yang Wajib Ikut Diunggah
+## 2. Berkas yang Wajib Ada di Server
 
-Dua folder ini **masuk `.gitignore`**, jadi kalau deploy lewat Git keduanya
-**tidak akan terbawa** — ini penyebab paling sering tampilan berantakan tanpa CSS:
-
-| Folder | Cara menyediakannya di server |
+| Folder | Cara menyediakannya |
 |---|---|
-| `public/build/` | Jalankan `npm run build` di lokal, lalu unggah manual. Atau jalankan di server bila Node tersedia. |
+| `public/build/` | **Sudah ikut ter-commit** (sengaja dikeluarkan dari `.gitignore`, lihat catatan di bawah). Cukup pastikan `npm run build` dijalankan sebelum commit. |
 | `vendor/` | Jalankan `composer install --no-dev --optimize-autoloader` di server. Bila tidak ada akses SSH, unggah folder `vendor/` dari lokal. |
 
 Yang **tidak perlu** diunggah: `node_modules/`, `tests/`, `.git/`.
+
+> ### ⚠️ Alur wajib setiap kali mengubah tampilan
+>
+> Hostinger shared hosting **tidak menyediakan Node.js**, sehingga aset tidak bisa
+> dibangun di server. Karena itu `public/build/` sengaja ikut disimpan di Git.
+>
+> ```bash
+> npm run build          # WAJIB dijalankan lebih dulu
+> git add public/build
+> git commit -m "..."
+> git push
+> ```
+>
+> Kalau langkah `npm run build` terlewat, server akan memakai aset lama — atau
+> gagal sama sekali dengan error *Vite manifest not found*.
+
+> ### ❗ Jangan pernah mengunggah berkas `public/hot`
+>
+> Berkas itu hanya muncul saat `npm run dev` berjalan dan menandakan Laravel harus
+> mengambil aset dari server Vite lokal. Bila ikut terunggah, seluruh CSS/JS di
+> produksi akan gagal dimuat. Berkas ini sudah diabaikan Git — pastikan tetap
+> demikian bila Anda mengunggah manual lewat FTP.
 
 ---
 
@@ -108,8 +127,17 @@ Tiga hal yang sering terlewat:
 
 - **`APP_DEBUG=false`** — bila `true`, pesan error akan membocorkan isi `.env`
   (termasuk password database) ke pengunjung.
-- **`APP_URL` harus `https://`** bila domain memakai SSL, kalau tidak aset dan
-  form bisa terblokir sebagai *mixed content*.
+- **`APP_URL` harus persis sama dengan alamat yang Anda ketik di browser** untuk
+  membuka halaman login — termasuk `https://` dan subfolder bila ada. URL aset
+  CSS/JS dibangun dari nilai ini, jadi kalau meleset, tampilan muncul tanpa gaya
+  meski `public/build/` sudah benar. Contoh:
+
+  ```dotenv
+  APP_URL=https://stock.cok-analytics.com          # bila memakai subdomain
+  APP_URL=https://cok-analytics.com/stock          # bila berada di subfolder
+  ```
+
+  Setelah mengubahnya, wajib jalankan `php artisan config:cache`.
 - **`APP_KEY` tidak boleh kosong** — kalau kosong, semua data terenkripsi
   (termasuk `warehouses.api_token`) gagal dibaca.
 
@@ -175,7 +203,9 @@ Satu baris ini cukup untuk seluruh penjadwalan Laravel.
 | **403 walau `.htaccess` ada** | `mod_rewrite` mati / `AllowOverride None` | Hubungi hosting, atau pakai Opsi A |
 | **500 Internal Server Error** | `APP_KEY` kosong, izin `storage/` salah, atau `vendor/` belum ada | Cek `storage/logs/laravel.log` |
 | **Halaman putih polos** | `APP_DEBUG=false` menyembunyikan error | Baca `storage/logs/laravel.log` |
-| **Tampilan tanpa CSS/JS** | `public/build/` belum diunggah | Jalankan `npm run build`, unggah foldernya |
+| **`Vite manifest not found at .../public/build/manifest.json`** | Folder `public/build/` belum ada di server | Jalankan `npm run build` di lokal, lalu unggah folder `public/build/` (3 berkas, ±145 KB) |
+| **Tampilan tanpa CSS/JS, tapi manifest ada** | `APP_URL` salah sehingga URL aset meleset | Samakan `APP_URL` dengan alamat asli aplikasi, lalu `php artisan config:cache` |
+| **Aset menunjuk ke `localhost:5173`** | Berkas `public/hot` ikut terunggah | Hapus `public/hot` di server |
 | **419 Page Expired** saat login | Sesi/cookie bermasalah | Pastikan `APP_URL` benar, jalankan `php artisan config:cache` |
 | **Rute selain beranda 404** | `mod_rewrite` mati atau `.htaccess` tidak terbaca | Aktifkan `RewriteBase /` di `public/.htaccess` |
 | **Aset campur http/https** | `APP_URL` masih `http://` | Ubah ke `https://`, lalu `config:cache` |
