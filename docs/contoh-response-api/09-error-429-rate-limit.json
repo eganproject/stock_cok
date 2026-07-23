@@ -1,0 +1,7 @@
+{
+  "success": false,
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Terlalu banyak permintaan. Coba lagi dalam 60 detik."
+  }
+}

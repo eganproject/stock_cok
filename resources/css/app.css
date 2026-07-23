@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ----------------------------------------------------------------
+   Base helpers
+----------------------------------------------------------------- */
+[x-cloak] { display: none !important; }
+
+html {
+    scroll-behavior: smooth;
+    font-size: 15px; /* slightly more compact, refined base */
+}
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.006em;
+}
+
+/* Thin custom scrollbar */
+.scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ----------------------------------------------------------------
+   Select2 — Tailwind-friendly overrides
+----------------------------------------------------------------- */
+.select2-container .select2-selection--single {
+    height: 42px !important;
+    border-radius: 0.75rem !important;
+    border-color: #e2e8f0 !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 0.5rem !important;
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 42px !important;
+    color: #0f172a !important;
+    padding-left: 0.25rem !important;
+    font-size: 0.875rem !important;
+}
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 40px !important;
+}
+.select2-container .select2-selection--multiple {
+    min-height: 42px !important;
+    border-radius: 0.75rem !important;
+    border-color: #e2e8f0 !important;
+}
+.select2-container--default.select2-container--focus .select2-selection--single,
+.select2-container--default.select2-container--focus .select2-selection--multiple {
+    border-color: #111111 !important;
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.18) !important;
+}
+.select2-dropdown {
+    border-color: #e2e8f0 !important;
+    border-radius: 0.75rem !important;
+    box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.25) !important;
+    overflow: hidden;
+}
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: #111111 !important;
+}
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #f4f4f4 !important;
+    border-color: #e0e0e0 !important;
+    color: #111111 !important;
+    border-radius: 0.5rem !important;
+    padding: 2px 8px !important;
+}
+.select2-container--default .select2-search--dropdown .select2-search__field {
+    border-radius: 0.5rem !important;
+    border-color: #e2e8f0 !important;
+}
+
+/* ----------------------------------------------------------------
+   Data table (native, server-side rendered)
+----------------------------------------------------------------- */
+.tbl { width: 100%; border-collapse: separate; border-spacing: 0; }
+.tbl thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f8fafc;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    text-align: left;
+    white-space: nowrap;
+    padding: 0.625rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+.tbl thead th:first-child { border-top-left-radius: 0.5rem; }
+.tbl thead th:last-child { border-top-right-radius: 0.5rem; }
+.tbl tbody td {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+.tbl tbody tr:last-child td { border-bottom: 0; }
+.tbl tbody tr { transition: background-color .12s ease; }
+.tbl tbody tr:hover { background: #f8fafc; }
+
+/* Flatpickr accent */
+.flatpickr-day.selected,
+.flatpickr-day.selected:hover { background: #111111 !important; border-color: #111111 !important; }
+.flatpickr-day.inRange { background: #f4f4f4 !important; border-color: #f4f4f4 !important; box-shadow: none !important; }

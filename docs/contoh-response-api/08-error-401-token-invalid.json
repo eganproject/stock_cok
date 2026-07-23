@@ -1,0 +1,7 @@
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_TOKEN",
+    "message": "Token tidak valid atau sudah kedaluwarsa."
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "success": true,
+  "meta": {
+    "warehouse_code": "MDN-04",
+    "server_time": "2026-07-23T14:35:00+07:00",
+    "page": 1,
+    "per_page": 100,
+    "total": 5,
+    "total_pages": 1
+  },
+  "data": [
+    {
+      "sku": "TK-2001",
+      "name": "Bearing 6204 2RS",
+      "category": "Bearing",
+      "uom": "pcs",
+      "qty": 120,
+      "min_qty": 40,
+      "status": "active",
+      "updated_at": "2026-07-22T08:00:00+07:00"
+    },
+    {
+      "sku": "TK-3110",
+      "name": "Oli Hidrolik ISO 68",
+      "category": "Pelumas",
+      "uom": "liter",
+      "qty": 247.5,
+      "min_qty": 100,
+      "status": "active",
+      "updated_at": "2026-07-22T13:22:41+07:00"
+    },
+    {
+      "sku": "TK-4200",
+      "name": "V-Belt B-75",
+      "category": "Transmisi",
+      "uom": "pcs",
+      "qty": 0,
+      "min_qty": 25,
+      "status": "active",
+      "updated_at": "2026-07-23T07:10:00+07:00"
+    },
+    {
+      "sku": "TK-5300",
+      "name": "Filter Udara Excavator",
+      "category": "Filter",
+      "uom": "pcs",
+      "qty": 9,
+      "min_qty": 15,
+      "status": "active",
+      "updated_at": "2026-07-23T09:45:00+07:00"
+    },
+    {
+      "sku": "TK-7500",
+      "name": "Baut HTB M16 x 60",
+      "category": "Fastener",
+      "uom": "pcs",
+      "qty": 2400,
+      "min_qty": 500,
+      "status": "active",
+      "updated_at": "2026-07-23T11:00:00+07:00"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "success": true,
+  "meta": {
+    "warehouse_code": "JKT-01",
+    "server_time": "2026-07-23T15:00:00+07:00",
+    "page": 1,
+    "per_page": 100,
+    "total": 3,
+    "total_pages": 1
+  },
+  "data": [
+    {
+      "sku": "SKU-7350",
+      "name": "Kabel LAN 10m",
+      "category": "Elektronik",
+      "uom": "roll",
+      "qty": 70,
+      "min_qty": 40,
+      "status": "active",
+      "updated_at": "2026-07-23T10:00:00+07:00"
+    },
+    {
+      "sku": "SKU-8110",
+      "name": "Rak Besi 5 Susun",
+      "category": "Perabot",
+      "uom": "unit",
+      "qty": 15,
+      "min_qty": 5,
+      "status": "inactive",
+      "updated_at": "2026-07-23T10:05:00+07:00"
+    },
+    {
+      "sku": "SKU-9900",
+      "name": "Printer Dot Matrix LX-300",
+      "category": "Elektronik",
+      "uom": "unit",
+      "qty": 0,
+      "min_qty": 0,
+      "status": "deleted",
+      "updated_at": "2026-07-23T10:10:00+07:00"
+    }
+  ]
+}
