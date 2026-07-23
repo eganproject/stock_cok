@@ -8,7 +8,6 @@ use App\Models\Stock;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -34,16 +33,20 @@ class DashboardController extends Controller
                 ->count(),
         ];
 
-        // Total stok per gudang — dipakai untuk grafik & bar kapasitas
+        // Total stok per gudang — dipakai untuk grafik & bar kapasitas.
+        //
+        // Memakai withSum (subquery berkorelasi) alih-alih JOIN + GROUP BY.
+        // Alasannya: GROUP BY warehouses.id sambil menyeleksi warehouses.*
+        // ditolak MariaDB dengan mode ONLY_FULL_GROUP_BY (error 1055), karena
+        // MariaDB tidak menyimpulkan functional dependency dari primary key
+        // seperti MySQL 8. Bentuk subquery ini aman di MySQL maupun MariaDB.
         $perWarehouse = Warehouse::query()
             ->with('division')
             ->when($divisionId, fn ($q) => $q->where('division_id', $divisionId))
-            ->leftJoin('stocks', function ($join) {
-                $join->on('stocks.warehouse_id', '=', 'warehouses.id')
-                     ->where('stocks.status', '!=', 'deleted');
-            })
-            ->select('warehouses.*', DB::raw('COALESCE(SUM(stocks.qty), 0) as total_qty'))
-            ->groupBy('warehouses.id')
+            ->withSum(
+                ['stocks as total_qty' => fn ($q) => $q->where('stocks.status', '!=', 'deleted')],
+                'qty'
+            )
             ->orderByDesc('total_qty')
             ->get();
 
