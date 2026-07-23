@@ -1,0 +1,47 @@
+# ==============================================================================
+# .htaccess ROOT — untuk hosting yang document root-nya mengarah ke folder
+# proyek (mis. Hostinger/cPanel dengan seluruh proyek di dalam public_html).
+#
+# Tanpa berkas ini, membuka domain akan menghasilkan 403 Forbidden karena
+# Apache mencari index.php di root proyek, padahal Laravel menaruhnya di public/.
+#
+# CATATAN: bila Anda bisa mengubah document root langsung ke folder "public"
+# lewat hPanel, cara itu LEBIH AMAN dan berkas ini tidak diperlukan.
+# Lihat docs/deploy-hostinger.md.
+# ==============================================================================
+
+# Matikan daftar isi folder
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # --------------------------------------------------------------------------
+    # 1) Blokir berkas sensitif
+    #    Wajib, karena dengan pola ini seluruh proyek berada di dalam web root.
+    # --------------------------------------------------------------------------
+    RewriteRule ^\.env - [F,L]
+    RewriteRule ^\.env\..* - [F,L]
+    RewriteRule ^\.git - [F,L]
+    RewriteRule ^composer\.(json|lock)$ - [F,L]
+    RewriteRule ^package(-lock)?\.json$ - [F,L]
+    RewriteRule ^(artisan|phpunit\.xml|vite\.config\.js|tailwind\.config\.js|postcss\.config\.js)$ - [F,L]
+    RewriteRule \.(md|sql|log|bak|sh|yml|yaml)$ - [F,L]
+
+    # --------------------------------------------------------------------------
+    # 2) Blokir akses langsung ke folder internal Laravel
+    #
+    #    CATATAN: "storage" sengaja TIDAK diblokir. URL /storage/... dipakai
+    #    Laravel untuk menyajikan berkas publik lewat symlink public/storage
+    #    (hasil `php artisan storage:link`). Memblokirnya akan membuat berkas
+    #    unggahan tidak bisa diakses. Folder storage/ yang asli tetap aman
+    #    karena aturan nomor 3 mengarahkan semua permintaan ke dalam public/.
+    # --------------------------------------------------------------------------
+    RewriteRule ^(app|bootstrap|config|database|docs|resources|routes|tests|vendor|node_modules)(/|$) - [F,L]
+
+    # --------------------------------------------------------------------------
+    # 3) Arahkan seluruh permintaan ke folder public/
+    #    Negative lookahead mencegah perulangan tak berujung.
+    # --------------------------------------------------------------------------
+    RewriteRule ^((?!public/).*)$ public/$1 [L,QSA]
+</IfModule>

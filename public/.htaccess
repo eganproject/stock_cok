@@ -1,9 +1,23 @@
+# Pastikan index.php dipakai sebagai berkas utama.
+# Sebagian shared hosting tidak memakainya secara default sehingga muncul 403.
+DirectoryIndex index.php
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
     </IfModule>
 
     RewriteEngine On
+
+    # --------------------------------------------------------------------------
+    # Bila masih 403/404 setelah unggah, aktifkan SALAH SATU baris berikut
+    # (satu per satu, jangan sekaligus):
+    #
+    #   Options +FollowSymLinks         -> sebagian host butuh ini agar rewrite jalan
+    #   Options +SymLinksIfOwnerMatch   -> alternatif bila FollowSymLinks ditolak
+    #   RewriteBase /                   -> bila aplikasi berada di root domain
+    #   RewriteBase /nama-subfolder/    -> bila aplikasi berada di dalam subfolder
+    # --------------------------------------------------------------------------
 
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
