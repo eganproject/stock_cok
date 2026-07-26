@@ -146,16 +146,25 @@
                                 <td class="hidden text-slate-500 md:table-cell">{{ $w->division->name }}</td>
                                 <td class="hidden max-w-[240px] truncate text-slate-500 lg:table-cell">{{ $w->address ?? '—' }}</td>
                                 <td class="text-right text-slate-600">{{ $w->capacity ? number_format($w->capacity, 0, ',', '.') : '—' }}</td>
-                                <td class="text-center">
-                                    @if ($w->isConfigured())
-                                        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Siap
-                                        </span>
-                                    @else
-                                        <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                                            <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span> Belum diatur
-                                        </span>
-                                    @endif
+                                <td>
+                                    <div class="flex flex-col items-center gap-1">
+                                        @if ($w->isConfigured())
+                                            <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Siap
+                                            </span>
+                                        @elseif (filled($w->base_url))
+                                            <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span> Perlu token
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span> Belum diatur
+                                            </span>
+                                        @endif
+                                        @if (filled($w->base_url))
+                                            <span class="block max-w-[190px] truncate font-mono text-[11px] text-slate-400" title="{{ $w->base_url }}">{{ preg_replace('#^https?://#', '', rtrim($w->base_url, '/')) }}</span>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="text-center">
                                     @if ($w->is_active)
@@ -166,6 +175,12 @@
                                 </td>
                                 <td>
                                     <div class="flex items-center justify-end gap-1">
+                                        @if (filled($w->base_url))
+                                            <button type="button" title="Test koneksi" @click="testConnection({{ $w->id }}, @js($w->name))"
+                                                class="rounded-lg p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600">
+                                                <svg class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z"/></svg>
+                                            </button>
+                                        @endif
                                         <button type="button" title="Edit" @click="openEdit(@js($whPayload))"
                                             class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-900">
                                             <svg class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
@@ -332,6 +347,74 @@
                 </div>
             </div>
         </div>
+
+        <!-- Test Connection Modal -->
+        <div x-show="testOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+            <div x-show="testOpen" x-transition.opacity @click="testOpen = false" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div x-show="testOpen" x-transition class="relative w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+                    <div class="text-center">
+                        <p class="text-xs font-medium uppercase tracking-wider text-slate-400">Test Koneksi</p>
+                        <h3 class="mt-0.5 text-base font-semibold text-slate-900" x-text="testName"></h3>
+                    </div>
+
+                    {{-- Sedang menguji --}}
+                    <div x-show="testing" class="mt-6 flex flex-col items-center gap-3 py-4">
+                        <svg class="h-8 w-8 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none"><circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.4 0 0 5.4 0 12h4Z"/></svg>
+                        <p class="text-sm text-slate-500">Menghubungi <span class="font-mono">/api/v1/health</span>…</p>
+                    </div>
+
+                    {{-- Hasil --}}
+                    <template x-if="!testing && testResult">
+                        <div class="mt-5">
+                            <div class="flex flex-col items-center gap-3">
+                                <span class="flex h-14 w-14 items-center justify-center rounded-full"
+                                      :class="testResult.ok ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'">
+                                    <template x-if="testResult.ok">
+                                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                    </template>
+                                    <template x-if="!testResult.ok">
+                                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                                    </template>
+                                </span>
+                                <p class="text-center text-sm font-medium" :class="testResult.ok ? 'text-slate-800' : 'text-rose-700'" x-text="testResult.message"></p>
+                            </div>
+
+                            {{-- Detail --}}
+                            <dl class="mt-5 space-y-2 rounded-xl bg-slate-50 p-4 text-sm">
+                                <div class="flex items-center justify-between" x-show="testResult.status !== undefined">
+                                    <dt class="text-slate-500">HTTP Status</dt>
+                                    <dd class="font-mono font-medium text-slate-800" x-text="testResult.status"></dd>
+                                </div>
+                                <div class="flex items-center justify-between" x-show="testResult.latency_ms !== undefined">
+                                    <dt class="text-slate-500">Waktu respons</dt>
+                                    <dd class="font-mono font-medium text-slate-800"><span x-text="testResult.latency_ms"></span> ms</dd>
+                                </div>
+                                <div class="flex items-center justify-between" x-show="testResult.server_time">
+                                    <dt class="text-slate-500">Waktu server gudang</dt>
+                                    <dd class="font-mono text-xs text-slate-800" x-text="testResult.server_time"></dd>
+                                </div>
+                                <div class="flex items-center justify-between" x-show="testResult.warehouse_code">
+                                    <dt class="text-slate-500">Kode gudang (remote)</dt>
+                                    <dd class="font-mono font-medium text-slate-800" x-text="testResult.warehouse_code"></dd>
+                                </div>
+                            </dl>
+
+                            {{-- Peringatan kode tidak cocok --}}
+                            <div x-show="testResult.code_match === false" x-cloak
+                                 class="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                                <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>
+                                <span>Kode gudang dari API berbeda dengan kode di sistem ini. Pastikan URL tidak tertukar dengan gudang lain.</span>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div class="mt-6 flex justify-end">
+                        <button type="button" @click="testOpen = false" class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">Tutup</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     @push('scripts')
@@ -346,6 +429,31 @@
                     formAction: '{{ route('warehouses.store') }}',
                     deleteName: '',
                     deleteAction: '',
+                    testOpen: false,
+                    testing: false,
+                    testResult: null,
+                    testName: '',
+
+                    async testConnection(id, name) {
+                        this.testName = name;
+                        this.testResult = null;
+                        this.testing = true;
+                        this.testOpen = true;
+                        try {
+                            const res = await fetch('{{ url('warehouses') }}/' + id + '/test-connection', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                    'Accept': 'application/json',
+                                },
+                            });
+                            this.testResult = await res.json();
+                        } catch (e) {
+                            this.testResult = { ok: false, message: 'Permintaan tidak dapat dikirim dari browser.' };
+                        } finally {
+                            this.testing = false;
+                        }
+                    },
 
                     init() {
                         if (config.openOnLoad) {

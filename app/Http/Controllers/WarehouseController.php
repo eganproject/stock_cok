@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Division;
 use App\Models\Warehouse;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -77,6 +79,70 @@ class WarehouseController extends Controller
         $warehouse->update($data);
 
         return redirect()->route('warehouses.index')->with('success', 'Data gudang berhasil diperbarui.');
+    }
+
+    /**
+     * Uji koneksi ke gudang dengan memanggil endpoint /api/v1/health.
+     * Bersifat read-only (tidak menyentuh data stok) dan dipanggil via AJAX.
+     */
+    public function testConnection(Warehouse $warehouse): JsonResponse
+    {
+        if (blank($warehouse->base_url)) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Base URL belum diatur untuk gudang ini.',
+            ]);
+        }
+
+        $start = microtime(true);
+
+        try {
+            $response = $warehouse->apiRequest(8)->get('/api/v1/health');
+            $latency  = (int) round((microtime(true) - $start) * 1000);
+            $body     = $response->json() ?? [];
+
+            if (! $response->successful()) {
+                return response()->json([
+                    'ok'         => false,
+                    'status'     => $response->status(),
+                    'latency_ms' => $latency,
+                    'message'    => 'Server merespons dengan HTTP ' . $response->status()
+                        . ($response->status() === 401 ? ' — token kemungkinan salah.' : '.'),
+                ]);
+            }
+
+            if (! ($body['success'] ?? false)) {
+                return response()->json([
+                    'ok'         => false,
+                    'status'     => $response->status(),
+                    'latency_ms' => $latency,
+                    'message'    => 'Terhubung, tetapi respons tidak sesuai format kontrak (field "success" tidak true).',
+                ]);
+            }
+
+            $remoteCode = $body['warehouse_code'] ?? null;
+
+            return response()->json([
+                'ok'             => true,
+                'status'         => $response->status(),
+                'latency_ms'     => $latency,
+                'server_time'    => $body['server_time'] ?? null,
+                'warehouse_code' => $remoteCode,
+                'code_match'     => $remoteCode !== null ? ($remoteCode === $warehouse->code) : null,
+                'message'        => 'Koneksi berhasil.',
+            ]);
+        } catch (ConnectionException $e) {
+            return response()->json([
+                'ok'         => false,
+                'latency_ms' => (int) round((microtime(true) - $start) * 1000),
+                'message'    => 'Tidak dapat terhubung (timeout / host tidak dapat dijangkau / SSL bermasalah).',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Gagal: ' . $e->getMessage(),
+            ]);
+        }
     }
 
     public function destroy(Warehouse $warehouse): RedirectResponse

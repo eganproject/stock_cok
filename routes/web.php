@@ -26,6 +26,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/warehouses', [WarehouseController::class, 'index'])->name('warehouses.index');
     Route::post('/warehouses', [WarehouseController::class, 'store'])->name('warehouses.store');
+    Route::post('/warehouses/{warehouse}/test-connection', [WarehouseController::class, 'testConnection'])->name('warehouses.test');
     Route::put('/warehouses/{warehouse}', [WarehouseController::class, 'update'])->name('warehouses.update');
     Route::delete('/warehouses/{warehouse}', [WarehouseController::class, 'destroy'])->name('warehouses.destroy');
 
