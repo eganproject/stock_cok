@@ -34,6 +34,10 @@ class RolePermissionSeeder extends Seeder
                 ['Ubah Gudang', 'warehouses.edit', 'Mengubah data & konfigurasi API gudang'],
                 ['Hapus Gudang', 'warehouses.delete', 'Menghapus gudang'],
             ],
+            'Sinkronisasi' => [
+                ['Lihat Status Sync', 'sync.view', 'Melihat status & riwayat sinkronisasi'],
+                ['Jalankan Sync', 'sync.run', 'Menjalankan sinkronisasi manual'],
+            ],
             'Manajemen User' => [
                 ['Lihat User', 'users.view', 'Melihat daftar pengguna'],
                 ['Tambah User', 'users.create', 'Menambah pengguna baru'],
@@ -81,7 +85,7 @@ class RolePermissionSeeder extends Seeder
         $manager->permissions()->sync($bySlug([
             'dashboard.view',
             'inventory.view', 'inventory.create', 'inventory.edit', 'inventory.export',
-            'warehouses.view', 'warehouses.edit', 'divisions.view',
+            'warehouses.view', 'warehouses.edit', 'divisions.view', 'sync.view', 'sync.run',
             'users.view', 'users.create', 'users.edit',
             'roles.view',
         ]));
@@ -92,7 +96,7 @@ class RolePermissionSeeder extends Seeder
             ['name' => 'Staff', 'description' => 'Akses lihat data operasional', 'is_locked' => false]
         );
         $staff->permissions()->sync($bySlug([
-            'dashboard.view', 'inventory.view', 'warehouses.view', 'divisions.view',
+            'dashboard.view', 'inventory.view', 'warehouses.view', 'divisions.view', 'sync.view',
         ]));
     }
 }

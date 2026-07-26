@@ -182,16 +182,46 @@ Di sebagian hosting perlu `755` alih-alih `775`.
 
 ---
 
-## 6. Cron untuk Sinkronisasi (persiapan Fase 4)
+## 6. Sinkronisasi Otomatis (Cron)
 
-Begitu penarikan API aktif, tambahkan satu cron job di hPanel
-(**Advanced → Cron Jobs**), dijalankan **setiap menit**:
+Sinkronisasi berjalan **langsung lewat cron** — tidak perlu queue worker
+(cocok untuk shared hosting). Ada dua cara.
+
+### Cara ringkas (disarankan untuk Hostinger)
+
+Panggil command sinkronisasi langsung dari cron hPanel
+(**Advanced → Cron Jobs**), tiap **10 menit**:
+
+```
+*/10 * * * * cd /home/uXXXX/domains/namadomain.com && php artisan warehouse:sync >> /dev/null 2>&1
+```
+
+Command `warehouse:sync` (tanpa argumen) menyinkronkan semua gudang aktif yang
+sudah dikonfigurasi, satu per satu. Cara ini tidak butuh flag apa pun di `.env`.
+
+### Cara berbasis scheduler Laravel (opsional)
+
+Bila ingin memakai penjadwalan bawaan Laravel (incremental tiap 10 menit +
+rekonsiliasi penuh harian 02:15):
+
+1. Set di `.env`: `SYNC_SCHEDULE_ENABLED=true`, lalu `php artisan config:clear`.
+2. Tambah **satu** cron tiap menit:
 
 ```
 * * * * * cd /home/uXXXX/domains/namadomain.com && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-Satu baris ini cukup untuk seluruh penjadwalan Laravel.
+Definisi jadwalnya ada di `routes/console.php` dan menjalankan `warehouse:sync`
+secara langsung (bukan lewat antrian).
+
+> **Sebelum mengaktifkan otomatis**, pastikan tiap gudang sudah lolos
+> **Test Koneksi** dan sinkronisasi manual (tombol *Sinkronkan* di halaman
+> **Status Sync**, atau `php artisan warehouse:sync KODE`) berhasil.
+
+> **Token gudang di server**: `.env` tidak ikut Git, jadi tambahkan token API
+> tiap gudang ke `.env` server (mis. `GUDANG29_API_TOKEN=...`) atau isi lewat
+> form **Gudang → Edit**. Jangan lupa daftarkan **IP outbound server** ke
+> allowlist gudang (`curl -s https://api.ipify.org` di server untuk melihatnya).
 
 ---
 

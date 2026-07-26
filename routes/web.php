@@ -6,6 +6,7 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SyncStatusController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WarehouseController;
 use Illuminate\Support\Facades\Route;
@@ -23,6 +24,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/divisions', [DivisionController::class, 'store'])->name('divisions.store');
     Route::put('/divisions/{division}', [DivisionController::class, 'update'])->name('divisions.update');
     Route::delete('/divisions/{division}', [DivisionController::class, 'destroy'])->name('divisions.destroy');
+
+    Route::get('/sync-status', [SyncStatusController::class, 'index'])->name('sync.index');
+    Route::post('/sync-status/{warehouse}/run', [SyncStatusController::class, 'run'])->name('sync.run');
 
     Route::get('/warehouses', [WarehouseController::class, 'index'])->name('warehouses.index');
     Route::post('/warehouses', [WarehouseController::class, 'store'])->name('warehouses.store');
