@@ -46,22 +46,28 @@ class InventorySeeder extends Seeder
 
         // ---- Gudang ----
         // [divisi, kode, nama]
+        // [divisi, kode, nama, konfigurasi API tambahan]
+        // Token API dibaca dari .env (JANGAN hardcode di sini — ikut ter-commit ke Git).
         $warehouses = [
-            [$akrilik, 'NGW',   'Gudang Nanggewer'],
-            [$akrilik, 'GD-29', 'Gudang 29'],
-            [$akrilik, 'SBY',   'Gudang Surabaya'],
-            [$otomotif, 'GD-24', 'Gudang 24'],
+            [$akrilik, 'NGW',   'Gudang Nanggewer', []],
+            [$akrilik, 'GD-29', 'Gudang 29', [
+                'base_url'  => 'https://gudang29.com',
+                'auth_type' => 'bearer',
+                'api_token' => env('GUDANG29_API_TOKEN'),
+            ]],
+            [$akrilik, 'SBY',   'Gudang Surabaya', []],
+            [$otomotif, 'GD-24', 'Gudang 24', []],
         ];
 
-        foreach ($warehouses as [$division, $code, $name]) {
-            Warehouse::create([
+        foreach ($warehouses as [$division, $code, $name, $apiConfig]) {
+            Warehouse::create(array_merge([
                 'division_id' => $division->id,
                 'code'        => $code,
                 'name'        => $name,
                 'timezone'    => 'Asia/Jakarta',
                 'is_active'   => true,
                 'sync_status' => 'never',
-            ]);
+            ], $apiConfig));
         }
     }
 }
