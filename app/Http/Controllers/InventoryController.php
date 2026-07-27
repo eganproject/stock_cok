@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Division;
 use App\Models\Warehouse;
 use App\Sync\WarehouseStockClient;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -35,6 +36,11 @@ class InventoryController extends Controller
         $selectedWarehouse = $divisionWarehouses->firstWhere('id', (int) $request->query('warehouse'));
         $targets = $selectedWarehouse ? collect([$selectedWarehouse]) : $divisionWarehouses;
 
+        // Filter tanggal (opsional) diteruskan ke API sebagai updated_since/until.
+        // Ini menyaring berdasarkan KAPAN barang terakhir berubah (updated_at),
+        // bukan "posisi stok pada tanggal itu".
+        [$dateFrom, $dateTo, $since, $until] = $this->resolveDateRange($request);
+
         // Tarik data live dari tiap gudang target.
         $rows = collect();
         $errors = [];
@@ -48,7 +54,7 @@ class InventoryController extends Controller
             }
 
             try {
-                [$items, $time] = $this->fetchWarehouse($warehouse, $fresh);
+                [$items, $time] = $this->fetchWarehouse($warehouse, $fresh, $since, $until);
                 $fetchedAt = $fetchedAt === null ? $time : max($fetchedAt, $time);
                 foreach ($items as $item) {
                     $rows->push($item);
@@ -108,8 +114,39 @@ class InventoryController extends Controller
         return view('inventory.index', compact(
             'divisions', 'division', 'divisionWarehouses', 'selectedWarehouse',
             'items', 'summary', 'categories', 'sort', 'direction', 'perPage',
-            'errors', 'fetchedAt', 'targets'
+            'errors', 'fetchedAt', 'targets', 'dateFrom', 'dateTo'
         ));
+    }
+
+    /**
+     * Ubah query date_from/date_to (Y-m-d) menjadi rentang instan untuk API:
+     * awal hari s/d akhir hari (WIB). Mengembalikan [rawFrom, rawTo, since, until].
+     *
+     * @return array{0: ?string, 1: ?string, 2: ?CarbonImmutable, 3: ?CarbonImmutable}
+     */
+    private function resolveDateRange(Request $request): array
+    {
+        $tz = config('app.timezone');
+        $parse = function (?string $value) use ($tz): ?CarbonImmutable {
+            if (blank($value)) {
+                return null;
+            }
+            try {
+                return CarbonImmutable::createFromFormat('Y-m-d', $value, $tz) ?: null;
+            } catch (\Throwable) {
+                return null;
+            }
+        };
+
+        $from = $parse($request->query('date_from'));
+        $to   = $parse($request->query('date_to'));
+
+        return [
+            $from?->format('Y-m-d'),
+            $to?->format('Y-m-d'),
+            $from?->startOfDay(),
+            $to?->endOfDay(),
+        ];
     }
 
     /**
@@ -119,19 +156,23 @@ class InventoryController extends Controller
      *
      * @return array{0: array<int, array<string, mixed>>, 1: string}  [rows, fetchedAt]
      */
-    private function fetchWarehouse(Warehouse $warehouse, bool $fresh): array
+    private function fetchWarehouse(Warehouse $warehouse, bool $fresh, ?CarbonImmutable $since = null, ?CarbonImmutable $until = null): array
     {
-        $key = "inventory_live_wh_{$warehouse->id}";
+        // Rentang tanggal ikut jadi bagian kunci cache supaya hasil per rentang
+        // tidak tertukar.
+        $key = 'inventory_live_wh_' . $warehouse->id
+            . '_' . ($since?->timestamp ?? 0)
+            . '_' . ($until?->timestamp ?? 0);
 
         if ($fresh) {
             Cache::forget($key);
         }
 
-        return Cache::remember($key, now()->addSeconds(self::CACHE_SECONDS), function () use ($warehouse) {
+        return Cache::remember($key, now()->addSeconds(self::CACHE_SECONDS), function () use ($warehouse, $since, $until) {
             $client = new WarehouseStockClient($warehouse);
             $rows = [];
 
-            foreach ($client->fetch() as $item) {
+            foreach ($client->fetch($since, $until) as $item) {
                 if ($item->isDeleted()) {
                     continue;
                 }

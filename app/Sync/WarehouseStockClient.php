@@ -39,7 +39,7 @@ class WarehouseStockClient
      *
      * @throws SyncException
      */
-    public function fetch(?CarbonInterface $since = null, int $perPage = 100): Generator
+    public function fetch(?CarbonInterface $since = null, ?CarbonInterface $until = null, int $perPage = 100): Generator
     {
         $page = 1;
         $totalPages = 1;
@@ -47,6 +47,7 @@ class WarehouseStockClient
         do {
             $response = $this->warehouse->apiRequest(30)->get('/api/v1/stocks', array_filter([
                 'updated_since' => $since?->toIso8601String(),
+                'updated_until' => $until?->toIso8601String(),
                 'page'          => $page,
                 'per_page'      => $perPage,
             ], fn ($v) => $v !== null));
