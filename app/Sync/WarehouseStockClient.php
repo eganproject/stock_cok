@@ -34,6 +34,8 @@ class WarehouseStockClient
 
     /**
      * Menarik seluruh halaman dan menghasilkan tiap baris sebagai StockItemData.
+     * Menyaring berdasarkan KAPAN baris terakhir berubah (updated_at). Dipakai
+     * mesin sinkronisasi bertahap (incremental).
      *
      * @return Generator<int, StockItemData>
      *
@@ -41,15 +43,48 @@ class WarehouseStockClient
      */
     public function fetch(?CarbonInterface $since = null, ?CarbonInterface $until = null, int $perPage = 100): Generator
     {
+        yield from $this->stream([
+            'updated_since' => $since?->toIso8601String(),
+            'updated_until' => $until?->toIso8601String(),
+        ], $perPage);
+    }
+
+    /**
+     * Menarik POSISI STOK pada tanggal tertentu (snapshot historis) via parameter
+     * `as_of`. `qty` tiap baris adalah stok pada penutupan tanggal itu, bukan stok
+     * terkini. `as_of` null = perilaku sama seperti tanpa filter (stok terkini).
+     *
+     * @return Generator<int, StockItemData>
+     *
+     * @throws SyncException
+     */
+    public function fetchAsOf(?CarbonInterface $asOf = null, int $perPage = 100): Generator
+    {
+        yield from $this->stream([
+            'as_of' => $asOf?->format('Y-m-d'),
+        ], $perPage);
+    }
+
+    /**
+     * Loop pagination + validasi amplop kontrak, menghasilkan tiap baris.
+     * `$query` adalah parameter tambahan (updated_since/as_of/dst); nilai null
+     * dibuang otomatis.
+     *
+     * @param  array<string, mixed>  $query
+     * @return Generator<int, StockItemData>
+     *
+     * @throws SyncException
+     */
+    private function stream(array $query, int $perPage): Generator
+    {
         $page = 1;
         $totalPages = 1;
 
         do {
             $response = $this->warehouse->apiRequest(30)->get('/api/v1/stocks', array_filter([
-                'updated_since' => $since?->toIso8601String(),
-                'updated_until' => $until?->toIso8601String(),
-                'page'          => $page,
-                'per_page'      => $perPage,
+                ...$query,
+                'page'     => $page,
+                'per_page' => $perPage,
             ], fn ($v) => $v !== null));
 
             if (! $response->successful()) {

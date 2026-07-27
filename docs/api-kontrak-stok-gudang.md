@@ -42,8 +42,14 @@ Mengembalikan daftar stok barang di gudang ini.
 |---|---|---|---|---|
 | `updated_since` | ISO-8601 datetime | tidak | — | Hanya kirim barang yang berubah **pada atau setelah** waktu ini (`>=`). Termasuk **tanggal dan jam**. |
 | `updated_until` | ISO-8601 datetime | tidak | — | Batas atas perubahan (`<=`). Dipakai untuk penarikan rentang / perbaikan data. |
+| `as_of` | tanggal `Y-m-d` | tidak | — | **Posisi stok pada penutupan tanggal ini** (snapshot historis). `qty` = stok per tanggal tsb, bukan stok terkini. Kosong = stok terkini. Tidak digabung dengan `updated_since/until`. |
 | `page` | integer | tidak | `1` | Halaman ke-. |
 | `per_page` | integer | tidak | `100` | Jumlah baris per halaman. Maksimum `500`. |
+
+> ℹ️ **Bedakan dua filter tanggal:** `updated_since/until` menyaring berdasarkan **kapan
+> baris terakhir berubah** (dipakai sinkronisasi bertahap). `as_of` mengembalikan
+> **posisi stok pada suatu tanggal** — seluruh SKU tetap dikirim, hanya nilai `qty`-nya
+> yang mencerminkan keadaan tanggal itu. Halaman Inventory pusat memakai `as_of`.
 
 **Filter tanggal + jam** adalah inti dari sinkronisasi bertahap (incremental). Sistem
 pusat akan memanggil endpoint ini tiap beberapa menit dengan `updated_since` berisi
@@ -71,6 +77,12 @@ Tanpa parameter waktu = ambil **seluruh** data (full sync):
 
 ```
 GET /api/v1/stocks?page=1&per_page=500
+```
+
+Posisi stok pada tanggal tertentu (mis. stok akhir 30 Juni 2026):
+
+```
+GET /api/v1/stocks?as_of=2026-06-30&page=1&per_page=100
 ```
 
 ### 2.3 Format Response (HTTP 200)

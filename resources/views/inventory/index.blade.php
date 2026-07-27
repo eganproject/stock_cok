@@ -23,6 +23,9 @@
                 <span>
                     Data diambil <strong>langsung dari API</strong> gudang divisi
                     <strong>{{ $division->name }}</strong>.
+                    @if ($asOfRaw)
+                        <span class="font-medium text-slate-700">· posisi stok per {{ \Illuminate\Support\Carbon::parse($asOfRaw)->translatedFormat('d M Y') }}</span>
+                    @endif
                     @if ($fetchedAt)
                         <span class="text-slate-400">· diperbarui {{ \Illuminate\Support\Carbon::parse($fetchedAt)->translatedFormat('d M Y, H:i') }}</span>
                     @endif
@@ -125,27 +128,22 @@
                         <input type="text" name="search" value="{{ request('search') }}" placeholder="SKU / nama…"
                             class="block w-full rounded-xl border-slate-200 py-2.5 text-sm focus:border-slate-900 focus:ring-2 focus:ring-slate-900/15">
                     </div>
-                    <div class="lg:col-span-3">
-                        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">Update dari</label>
-                        <input type="text" id="dateFrom" name="date_from" value="{{ $dateFrom }}" placeholder="Tanggal awal"
-                            class="block w-full rounded-xl border-slate-200 py-2.5 text-sm focus:border-slate-900 focus:ring-2 focus:ring-slate-900/15">
-                    </div>
-                    <div class="lg:col-span-3">
-                        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">Update s/d</label>
-                        <input type="text" id="dateTo" name="date_to" value="{{ $dateTo }}" placeholder="Tanggal akhir"
+                    <div class="lg:col-span-4">
+                        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">Posisi stok per tanggal</label>
+                        <input type="text" id="asOf" name="as_of" value="{{ $asOfRaw }}" placeholder="Stok terkini"
                             class="block w-full rounded-xl border-slate-200 py-2.5 text-sm focus:border-slate-900 focus:ring-2 focus:ring-slate-900/15">
                     </div>
                 </div>
 
                 <p class="mt-2 flex items-center gap-1.5 text-[11px] text-slate-400">
                     <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"/></svg>
-                    Filter tanggal diteruskan ke API — menyaring barang berdasarkan <strong>kapan terakhir berubah</strong> (updated_at), bukan posisi stok pada tanggal tsb.
+                    Diteruskan ke API sebagai <strong>posisi stok</strong> (as_of) — menampilkan jumlah stok pada penutupan tanggal tsb. Kosongkan untuk stok terkini.
                 </p>
 
                 <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
                     <div class="flex items-center gap-2">
                         <button type="submit" class="rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-medium text-white hover:bg-slate-800">Terapkan</button>
-                        @if (request()->hasAny(['warehouse', 'category', 'status', 'search', 'date_from', 'date_to']))
+                        @if (request()->hasAny(['warehouse', 'category', 'status', 'search', 'as_of']))
                             <a href="{{ route('inventory.index', ['division' => $division?->id]) }}" class="text-sm font-medium text-slate-500 hover:text-slate-800">Reset</a>
                         @endif
                     </div>
@@ -230,15 +228,14 @@
                         .on('change', function () { form.submit(); });
                 });
 
-                // Rentang tanggal → submit saat dipilih (diteruskan ke API).
-                ['#dateFrom', '#dateTo'].forEach(function (sel) {
-                    flatpickr(sel, {
-                        dateFormat: 'Y-m-d', altInput: true, altFormat: 'd M Y',
-                        locale: { firstDayOfWeek: 1 },
-                        onClose: function (dates, str, inst) {
-                            if (str !== inst.input.defaultValue) form.submit();
-                        },
-                    });
+                // Posisi stok per tanggal → submit saat dipilih (diteruskan ke API as_of).
+                // Tidak bisa memilih tanggal di masa depan.
+                flatpickr('#asOf', {
+                    dateFormat: 'Y-m-d', altInput: true, altFormat: 'd M Y',
+                    maxDate: 'today', locale: { firstDayOfWeek: 1 },
+                    onClose: function (dates, str, inst) {
+                        if (str !== inst.input.defaultValue) form.submit();
+                    },
                 });
             });
         </script>

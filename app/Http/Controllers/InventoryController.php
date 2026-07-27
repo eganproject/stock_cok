@@ -36,10 +36,9 @@ class InventoryController extends Controller
         $selectedWarehouse = $divisionWarehouses->firstWhere('id', (int) $request->query('warehouse'));
         $targets = $selectedWarehouse ? collect([$selectedWarehouse]) : $divisionWarehouses;
 
-        // Filter tanggal (opsional) diteruskan ke API sebagai updated_since/until.
-        // Ini menyaring berdasarkan KAPAN barang terakhir berubah (updated_at),
-        // bukan "posisi stok pada tanggal itu".
-        [$dateFrom, $dateTo, $since, $until] = $this->resolveDateRange($request);
+        // Filter tanggal (opsional) diteruskan ke API sebagai `as_of` = POSISI STOK
+        // pada tanggal itu (snapshot historis). Kosong = stok terkini.
+        [$asOfRaw, $asOf] = $this->resolveAsOf($request);
 
         // Tarik data live dari tiap gudang target.
         $rows = collect();
@@ -54,7 +53,7 @@ class InventoryController extends Controller
             }
 
             try {
-                [$items, $time] = $this->fetchWarehouse($warehouse, $fresh, $since, $until);
+                [$items, $time] = $this->fetchWarehouse($warehouse, $fresh, $asOf);
                 $fetchedAt = $fetchedAt === null ? $time : max($fetchedAt, $time);
                 foreach ($items as $item) {
                     $rows->push($item);
@@ -114,39 +113,40 @@ class InventoryController extends Controller
         return view('inventory.index', compact(
             'divisions', 'division', 'divisionWarehouses', 'selectedWarehouse',
             'items', 'summary', 'categories', 'sort', 'direction', 'perPage',
-            'errors', 'fetchedAt', 'targets', 'dateFrom', 'dateTo'
+            'errors', 'fetchedAt', 'targets', 'asOfRaw'
         ));
     }
 
     /**
-     * Ubah query date_from/date_to (Y-m-d) menjadi rentang instan untuk API:
-     * awal hari s/d akhir hari (WIB). Mengembalikan [rawFrom, rawTo, since, until].
+     * Baca query `as_of` (Y-m-d). Mengembalikan [raw untuk view, CarbonImmutable
+     * untuk API]. Tanggal masa depan dipangkas ke hari ini (snapshot tidak bisa
+     * melampaui sekarang). Kosong/invalid = null (stok terkini).
      *
-     * @return array{0: ?string, 1: ?string, 2: ?CarbonImmutable, 3: ?CarbonImmutable}
+     * @return array{0: ?string, 1: ?CarbonImmutable}
      */
-    private function resolveDateRange(Request $request): array
+    private function resolveAsOf(Request $request): array
     {
-        $tz = config('app.timezone');
-        $parse = function (?string $value) use ($tz): ?CarbonImmutable {
-            if (blank($value)) {
-                return null;
-            }
-            try {
-                return CarbonImmutable::createFromFormat('Y-m-d', $value, $tz) ?: null;
-            } catch (\Throwable) {
-                return null;
-            }
-        };
+        $value = $request->query('as_of');
+        if (blank($value)) {
+            return [null, null];
+        }
 
-        $from = $parse($request->query('date_from'));
-        $to   = $parse($request->query('date_to'));
+        try {
+            $date = CarbonImmutable::createFromFormat('Y-m-d', $value, config('app.timezone'));
+        } catch (\Throwable) {
+            $date = false;
+        }
 
-        return [
-            $from?->format('Y-m-d'),
-            $to?->format('Y-m-d'),
-            $from?->startOfDay(),
-            $to?->endOfDay(),
-        ];
+        if (! $date) {
+            return [null, null];
+        }
+
+        $today = CarbonImmutable::now(config('app.timezone'));
+        if ($date->greaterThan($today)) {
+            $date = $today;
+        }
+
+        return [$date->format('Y-m-d'), $date];
     }
 
     /**
@@ -156,23 +156,21 @@ class InventoryController extends Controller
      *
      * @return array{0: array<int, array<string, mixed>>, 1: string}  [rows, fetchedAt]
      */
-    private function fetchWarehouse(Warehouse $warehouse, bool $fresh, ?CarbonImmutable $since = null, ?CarbonImmutable $until = null): array
+    private function fetchWarehouse(Warehouse $warehouse, bool $fresh, ?CarbonImmutable $asOf = null): array
     {
-        // Rentang tanggal ikut jadi bagian kunci cache supaya hasil per rentang
+        // Tanggal as_of ikut jadi bagian kunci cache supaya hasil tiap tanggal
         // tidak tertukar.
-        $key = 'inventory_live_wh_' . $warehouse->id
-            . '_' . ($since?->timestamp ?? 0)
-            . '_' . ($until?->timestamp ?? 0);
+        $key = 'inventory_live_wh_' . $warehouse->id . '_asof_' . ($asOf?->format('Ymd') ?? 'now');
 
         if ($fresh) {
             Cache::forget($key);
         }
 
-        return Cache::remember($key, now()->addSeconds(self::CACHE_SECONDS), function () use ($warehouse, $since, $until) {
+        return Cache::remember($key, now()->addSeconds(self::CACHE_SECONDS), function () use ($warehouse, $asOf) {
             $client = new WarehouseStockClient($warehouse);
             $rows = [];
 
-            foreach ($client->fetch($since, $until) as $item) {
+            foreach ($client->fetchAsOf($asOf) as $item) {
                 if ($item->isDeleted()) {
                     continue;
                 }
