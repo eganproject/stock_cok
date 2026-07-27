@@ -55,7 +55,11 @@ class InventorySeeder extends Seeder
                 'auth_type' => 'bearer',
                 'api_token' => env('GUDANG29_API_TOKEN'),
             ]],
-            [$akrilik, 'SBY',   'Gudang Surabaya', []],
+            [$akrilik, 'SBY',   'Gudang Surabaya', [
+                'base_url'  => 'https://gudangsurabaya.com',
+                'auth_type' => 'bearer',
+                'api_token' => env('GUDANGSBY_API_TOKEN'),
+            ]],
             [$otomotif, 'GD-24', 'Gudang 24', []],
         ];
 
