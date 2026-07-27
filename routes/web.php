@@ -4,6 +4,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DivisionController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\ProductCatalogController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SyncStatusController;
@@ -19,6 +20,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
+
+    Route::get('/produk', [ProductCatalogController::class, 'index'])->name('products.index');
 
     Route::get('/divisions', [DivisionController::class, 'index'])->name('divisions.index');
     Route::post('/divisions', [DivisionController::class, 'store'])->name('divisions.store');
