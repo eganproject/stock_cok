@@ -3,90 +3,159 @@
 namespace App\Http\Controllers;
 
 use App\Models\Division;
-use App\Models\Product;
-use App\Models\Stock;
 use App\Models\Warehouse;
+use App\Sync\WarehouseStockClient;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class InventoryController extends Controller
 {
-    /** Kolom yang boleh dipakai untuk sorting => ekspresi SQL-nya. */
-    private const SORT_MAP = [
-        'sku'       => 'products.sku',
-        'name'      => 'products.name',
-        'category'  => 'products.category',
-        'warehouse' => 'warehouses.name',
-        'stock'     => 'stocks.qty',
-        'status'    => null, // ditangani khusus (ekspresi CASE)
-        'updated'   => 'stocks.source_updated_at',
-    ];
+    private const SORTABLE = ['sku', 'name', 'category', 'warehouse', 'stock', 'status', 'updated'];
+
+    /** Berapa lama hasil API di-cache agar sort/paginate tidak menembak API lagi. */
+    private const CACHE_SECONDS = 120;
 
     public function index(Request $request): View
     {
-        $sort      = array_key_exists($request->query('sort'), self::SORT_MAP) ? $request->query('sort') : 'name';
-        $direction = $request->query('direction') === 'desc' ? 'desc' : 'asc';
-        $perPage   = in_array((int) $request->query('per_page'), [10, 25, 50, 100], true) ? (int) $request->query('per_page') : 10;
+        $divisions = Division::orderBy('name')->get();
 
-        $search      = trim((string) $request->query('search', ''));
-        $divisionId  = $request->query('division');
-        $warehouseId = $request->query('warehouse');
-        $category    = $request->query('category');
-        $status      = $request->query('status');
-        $dateFrom    = $request->query('date_from');
-        $dateTo      = $request->query('date_to');
+        // Data inventory diambil LANGSUNG dari API gudang, di-scope per divisi.
+        // Filter divisi selalu tunggal agar volume data dari API terkendali.
+        $division = $divisions->firstWhere('id', (int) $request->query('division')) ?? $divisions->first();
 
-        $base = Stock::query()
-            ->join('products', 'stocks.product_id', '=', 'products.id')
-            ->join('warehouses', 'stocks.warehouse_id', '=', 'warehouses.id')
-            ->where('stocks.status', '!=', 'deleted')
-            ->when($search !== '', function ($q) use ($search) {
-                $q->where(function ($sub) use ($search) {
-                    $sub->where('products.sku', 'like', "%{$search}%")
-                        ->orWhere('products.name', 'like', "%{$search}%")
-                        ->orWhere('products.category', 'like', "%{$search}%");
-                });
-            })
-            ->when($divisionId, fn ($q) => $q->where('warehouses.division_id', $divisionId))
-            ->when($warehouseId, fn ($q) => $q->where('stocks.warehouse_id', $warehouseId))
-            ->when($category, fn ($q) => $q->where('products.category', $category))
-            ->when($status === 'habis', fn ($q) => $q->where('stocks.qty', '<=', 0))
-            ->when($status === 'menipis', fn ($q) => $q->where('stocks.qty', '>', 0)->whereColumn('stocks.qty', '<=', 'stocks.min_qty'))
-            ->when($status === 'tersedia', fn ($q) => $q->whereColumn('stocks.qty', '>', 'stocks.min_qty'))
-            ->when($dateFrom, fn ($q) => $q->whereDate('stocks.source_updated_at', '>=', $dateFrom))
-            ->when($dateTo, fn ($q) => $q->whereDate('stocks.source_updated_at', '<=', $dateTo));
+        // Gudang aktif pada divisi terpilih (untuk dropdown + target pemanggilan API).
+        $divisionWarehouses = $division
+            ? Warehouse::where('division_id', $division->id)->where('is_active', true)->orderBy('name')->get()
+            : collect();
 
-        // Ringkasan mengikuti filter aktif
+        // Gudang terpilih harus milik divisi ini; kosong = semua gudang divisi.
+        $selectedWarehouse = $divisionWarehouses->firstWhere('id', (int) $request->query('warehouse'));
+        $targets = $selectedWarehouse ? collect([$selectedWarehouse]) : $divisionWarehouses;
+
+        // Tarik data live dari tiap gudang target.
+        $rows = collect();
+        $errors = [];
+        $fetchedAt = null;
+        $fresh = $request->boolean('fresh');
+
+        foreach ($targets as $warehouse) {
+            if (blank($warehouse->base_url)) {
+                $errors[] = "{$warehouse->name} ({$warehouse->code}): belum dikonfigurasi — Base URL kosong.";
+                continue;
+            }
+
+            try {
+                [$items, $time] = $this->fetchWarehouse($warehouse, $fresh);
+                $fetchedAt = $fetchedAt === null ? $time : max($fetchedAt, $time);
+                foreach ($items as $item) {
+                    $rows->push($item);
+                }
+            } catch (\Throwable $e) {
+                $errors[] = "{$warehouse->name} ({$warehouse->code}): {$e->getMessage()}";
+            }
+        }
+
+        // ---- Filter di memori ----
+        $search   = trim((string) $request->query('search', ''));
+        $category = $request->query('category');
+        $status   = $request->query('status');
+
+        $filtered = $rows
+            ->when($search !== '', fn (Collection $c) => $c->filter(
+                fn ($r) => str_contains(mb_strtolower($r['sku'] . ' ' . $r['name'] . ' ' . (string) $r['category']), mb_strtolower($search))
+            ))
+            ->when($category, fn (Collection $c) => $c->where('category', $category))
+            ->when(in_array($status, ['tersedia', 'menipis', 'habis'], true), fn (Collection $c) => $c->where('status_key', $status))
+            ->values();
+
         $summary = [
-            'items' => (clone $base)->count(),
-            'stock' => (float) (clone $base)->sum('stocks.qty'),
-            'low'   => (clone $base)->where('stocks.qty', '>', 0)->whereColumn('stocks.qty', '<=', 'stocks.min_qty')->count(),
-            'out'   => (clone $base)->where('stocks.qty', '<=', 0)->count(),
+            'items' => $filtered->count(),
+            'stock' => (float) $filtered->sum('qty'),
+            'low'   => $filtered->where('status_key', 'menipis')->count(),
+            'out'   => $filtered->where('status_key', 'habis')->count(),
         ];
 
-        $items = (clone $base)
-            ->select('stocks.*')
-            ->with(['product', 'warehouse.division'])
-            ->when(
-                $sort === 'status',
-                fn ($q) => $q->orderByRaw(Stock::statusOrderExpression() . ' ' . $direction),
-                fn ($q) => $q->orderBy(self::SORT_MAP[$sort], $direction)
-            )
-            ->paginate($perPage)
-            ->withQueryString();
+        // ---- Urutkan di memori ----
+        $sort      = in_array($request->query('sort'), self::SORTABLE, true) ? $request->query('sort') : 'name';
+        $direction = $request->query('direction') === 'desc' ? 'desc' : 'asc';
+        $sortKey = match ($sort) {
+            'stock'     => 'qty',
+            'status'    => 'status_order',
+            'warehouse' => 'warehouse_name',
+            default     => $sort,
+        };
+        $sorted = ($direction === 'desc'
+            ? $filtered->sortByDesc($sortKey, SORT_NATURAL | SORT_FLAG_CASE)
+            : $filtered->sortBy($sortKey, SORT_NATURAL | SORT_FLAG_CASE)
+        )->values();
 
-        $divisions  = Division::orderBy('name')->get();
-        $warehouses = Warehouse::with('division')->orderBy('name')->get()->groupBy('division.name');
-        $categories = Product::query()
-            ->when($divisionId, fn ($q) => $q->where('division_id', $divisionId))
-            ->whereNotNull('category')
-            ->distinct()
-            ->orderBy('category')
-            ->pluck('category');
+        // ---- Paginasi di memori ----
+        $perPage = in_array((int) $request->query('per_page'), [10, 25, 50, 100], true) ? (int) $request->query('per_page') : 25;
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $items = new LengthAwarePaginator(
+            $sorted->forPage($page, $perPage)->values(),
+            $sorted->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        $categories = $rows->pluck('category')->filter()->unique()->sort()->values();
 
         return view('inventory.index', compact(
-            'items', 'summary', 'divisions', 'warehouses', 'categories',
-            'sort', 'direction', 'perPage'
+            'divisions', 'division', 'divisionWarehouses', 'selectedWarehouse',
+            'items', 'summary', 'categories', 'sort', 'direction', 'perPage',
+            'errors', 'fetchedAt', 'targets'
         ));
+    }
+
+    /**
+     * Ambil seluruh stok satu gudang dari API (semua halaman), dinormalisasi
+     * ke bentuk baris tabel. Di-cache singkat agar aksi sort/filter/paginate
+     * tidak memanggil API berulang.
+     *
+     * @return array{0: array<int, array<string, mixed>>, 1: string}  [rows, fetchedAt]
+     */
+    private function fetchWarehouse(Warehouse $warehouse, bool $fresh): array
+    {
+        $key = "inventory_live_wh_{$warehouse->id}";
+
+        if ($fresh) {
+            Cache::forget($key);
+        }
+
+        return Cache::remember($key, now()->addSeconds(self::CACHE_SECONDS), function () use ($warehouse) {
+            $client = new WarehouseStockClient($warehouse);
+            $rows = [];
+
+            foreach ($client->fetch() as $item) {
+                if ($item->isDeleted()) {
+                    continue;
+                }
+
+                $statusKey = $item->qty <= 0
+                    ? 'habis'
+                    : ($item->qty <= ($item->minQty ?? 0) ? 'menipis' : 'tersedia');
+
+                $rows[] = [
+                    'sku'            => $item->sku,
+                    'name'           => $item->name,
+                    'category'       => $item->category,
+                    'uom'            => $item->uom,
+                    'qty'            => $item->qty,
+                    'min_qty'        => $item->minQty ?? 0,
+                    'status_key'     => $statusKey,
+                    'status_order'   => $statusKey === 'habis' ? 0 : ($statusKey === 'menipis' ? 1 : 2),
+                    'warehouse_code' => $warehouse->code,
+                    'warehouse_name' => $warehouse->name,
+                    'updated'        => optional($item->sourceUpdatedAt)->setTimezone(config('app.timezone'))->format('Y-m-d H:i'),
+                ];
+            }
+
+            return [$rows, now()->format('Y-m-d H:i:s')];
+        });
     }
 }
