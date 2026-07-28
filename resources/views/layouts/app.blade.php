@@ -60,7 +60,10 @@
                         </button>
                         <button @click="sidebarCollapsed = ! sidebarCollapsed" title="Perkecil / perbesar sidebar"
                             class="hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:inline-flex">
-                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25h16.5m-16.5 13.5h16.5M3.75 12h16.5M9 5.25 5.25 9m0 0L9 12.75M5.25 9h13.5" style="display:none"/><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12H12m-8.25 5.25h16.5M9.75 15 6.75 12l3-3"/></svg>
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25A1.5 1.5 0 0 1 5.25 3.75h13.5a1.5 1.5 0 0 1 1.5 1.5v13.5a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V5.25Z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.75v16.5"/>
+                            </svg>
                         </button>
 
                         <div class="min-w-0 flex-1">
