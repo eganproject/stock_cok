@@ -17,6 +17,22 @@
 
         <!-- App assets -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+        <style>
+            [x-cloak] { display: none !important; }
+            /* Sidebar mode kecil (hanya desktop): sembunyikan teks, sisakan ikon */
+            @media (min-width: 1024px) {
+                .sidebar-collapsed .nav-label,
+                .sidebar-collapsed .nav-section,
+                .sidebar-collapsed .nav-brand-text,
+                .sidebar-collapsed .nav-footer-text,
+                .sidebar-collapsed .nav-chevron,
+                .sidebar-collapsed .nav-report-sub,
+                .sidebar-collapsed .nav-logout { display: none !important; }
+                .sidebar-collapsed .nav-item,
+                .sidebar-collapsed .nav-brand,
+                .sidebar-collapsed .nav-footer-inner { justify-content: center; }
+            }
+        </style>
         @stack('styles')
     </head>
     <body class="h-full font-sans text-slate-800 antialiased">
@@ -29,18 +45,22 @@
 
             <!-- Sidebar -->
             <aside
-                class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200 bg-white text-slate-600 transition-transform duration-300 lg:translate-x-0"
-                :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
+                class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200 bg-white text-slate-600 transition-all duration-300 lg:translate-x-0"
+                :class="{ 'translate-x-0': sidebarOpen, '-translate-x-full': ! sidebarOpen, 'lg:w-[74px] sidebar-collapsed': sidebarCollapsed }">
                 @include('layouts.sidebar')
             </aside>
 
             <!-- Main column -->
-            <div class="lg:pl-64">
+            <div class="transition-all duration-300" :class="sidebarCollapsed ? 'lg:pl-[74px]' : 'lg:pl-64'">
                 <!-- Topbar -->
                 <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
                     <div class="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
                         <button @click="sidebarOpen = true" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden">
                             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+                        </button>
+                        <button @click="sidebarCollapsed = ! sidebarCollapsed" title="Perkecil / perbesar sidebar"
+                            class="hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:inline-flex">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25h16.5m-16.5 13.5h16.5M3.75 12h16.5M9 5.25 5.25 9m0 0L9 12.75M5.25 9h13.5" style="display:none"/><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12H12m-8.25 5.25h16.5M9.75 15 6.75 12l3-3"/></svg>
                         </button>
 
                         <div class="min-w-0 flex-1">
@@ -135,6 +155,11 @@
             function adminShell() {
                 return {
                     sidebarOpen: false,
+                    sidebarCollapsed: false,
+                    init() {
+                        this.sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === '1';
+                        this.$watch('sidebarCollapsed', v => localStorage.setItem('sidebarCollapsed', v ? '1' : '0'));
+                    },
                 };
             }
         </script>
