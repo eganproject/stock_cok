@@ -73,6 +73,7 @@
             <!-- Filter toolbar -->
             <form method="GET" action="{{ route('products.index') }}" id="catFilterForm"
                   class="border-b border-slate-100 px-4 py-4 sm:px-6">
+                <input type="hidden" name="division" value="{{ $division?->id }}">
                 <input type="hidden" name="sort" value="{{ $sort }}">
                 <input type="hidden" name="direction" value="{{ $direction }}">
 

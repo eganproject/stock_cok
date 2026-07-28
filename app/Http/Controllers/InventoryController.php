@@ -21,6 +21,11 @@ class InventoryController extends Controller
 
     public function index(Request $request): View
     {
+        // `partial` hanya menentukan view; jangan biarkan ikut ke URL yang
+        // dibangun link sort/paginasi (fullUrlWithQuery/withQueryString).
+        $isPartial = $request->boolean('partial');
+        $request->query->remove('partial');
+
         $data = $this->prepare($request);
         $sorted = $data['sorted'];
 
@@ -34,7 +39,10 @@ class InventoryController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
-        return view('inventory.index', [
+        // Permintaan AJAX (filter/sort/paginasi) hanya butuh isi yang di-swap.
+        $view = $isPartial ? 'inventory._app' : 'inventory.index';
+
+        return view($view, [
             'items' => $items,
         ] + $data);
     }
