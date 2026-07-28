@@ -6,6 +6,7 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductCatalogController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SyncStatusController;
 use App\Http\Controllers\UserController;
@@ -23,6 +24,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/inventory/export', [InventoryController::class, 'export'])->name('inventory.export');
 
     Route::get('/produk', [ProductCatalogController::class, 'index'])->name('products.index');
+
+    Route::get('/laporan/perlu-restock', [ReportController::class, 'restock'])->name('reports.restock');
+    Route::get('/laporan/ketimpangan-gudang', [ReportController::class, 'imbalance'])->name('reports.imbalance');
 
     Route::get('/divisions', [DivisionController::class, 'index'])->name('divisions.index');
     Route::post('/divisions', [DivisionController::class, 'store'])->name('divisions.store');
