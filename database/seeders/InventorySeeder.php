@@ -49,7 +49,11 @@ class InventorySeeder extends Seeder
         // [divisi, kode, nama, konfigurasi API tambahan]
         // Token API dibaca dari .env (JANGAN hardcode di sini — ikut ter-commit ke Git).
         $warehouses = [
-            [$akrilik, 'NGW',   'Gudang Nanggewer', []],
+            [$akrilik, 'NGW',   'Gudang Nanggewer', [
+                'base_url'  => 'https://inventory.cok-analytics.com',
+                'auth_type' => 'bearer',
+                'api_token' => env('GUDANGNGW_API_TOKEN'),
+            ]],
             [$akrilik, 'GD-29', 'Gudang 29', [
                 'base_url'  => 'https://gudang29.com',
                 'auth_type' => 'bearer',
