@@ -8,19 +8,61 @@
             <p class="mt-1 text-xs text-slate-400">Tambahkan divisi & gudang lebih dulu di menu terkait.</p>
         </div>
     @else
+        <style>
+            /* Indikator loading Inventory — smooth & modern (dikendalikan .is-loading) */
+            #invBar {
+                position: absolute; inset-inline: 0; top: -6px; height: 3px; z-index: 40;
+                overflow: hidden; border-radius: 9999px; pointer-events: none;
+                opacity: 0; transition: opacity .25s ease;
+            }
+            #invBar > span {
+                display: block; height: 100%; width: 40%; border-radius: 9999px;
+                background: linear-gradient(90deg, rgba(15,23,42,0) 0%, #0f172a 50%, rgba(15,23,42,0) 100%);
+            }
+            #invLoading {
+                position: absolute; inset: 0; z-index: 30; pointer-events: none;
+                opacity: 0; visibility: hidden; transition: opacity .25s ease, visibility .25s ease;
+            }
+            #invLoading > div {
+                position: sticky; top: 6rem; margin-inline: auto; width: max-content;
+                display: flex; align-items: center; gap: .625rem;
+                padding: .5rem 1rem; border-radius: 9999px;
+                border: 1px solid rgb(226 232 240 / .8); background: rgb(255 255 255 / .75);
+                backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+                box-shadow: 0 10px 25px -8px rgb(15 23 42 / .25);
+                font-size: .875rem; font-weight: 500; color: rgb(71 85 105);
+                transform: translateY(-4px); transition: transform .25s ease;
+            }
+            #invLoading .inv-spinner {
+                width: 1rem; height: 1rem; border-radius: 9999px;
+                border: 2px solid rgb(203 213 225); border-top-color: #0f172a;
+                animation: invSpin .6s linear infinite;
+            }
+            #invApp { transition: opacity .25s ease, filter .25s ease; }
+            /* --- keadaan loading --- */
+            #invWrap.is-loading #invBar { opacity: 1; }
+            #invWrap.is-loading #invBar > span { animation: invBar 1.15s cubic-bezier(.4,0,.2,1) infinite; }
+            #invWrap.is-loading #invLoading { opacity: 1; visibility: visible; }
+            #invWrap.is-loading #invLoading > div { transform: translateY(0); }
+            #invWrap.is-loading #invApp { opacity: .5; filter: blur(1.5px); pointer-events: none; }
+            @keyframes invBar { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+            @keyframes invSpin { to { transform: rotate(360deg); } }
+            @media (prefers-reduced-motion: reduce) {
+                #invBar > span, #invLoading .inv-spinner { animation-duration: 0s; }
+                #invApp, #invLoading, #invLoading > div, #invBar { transition: none; }
+            }
+        </style>
+
         <div class="relative" id="invWrap">
-            {{-- Indikator loading (di luar #invApp agar tidak ikut ter-swap) --}}
-            <div id="invLoading" class="pointer-events-none absolute inset-0 z-30 hidden">
-                <div class="sticky top-24 mx-auto flex w-max items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-sm font-medium text-slate-600 shadow-lg">
-                    <svg class="h-4 w-4 animate-spin text-slate-900" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    Memuat data…
-                </div>
+            {{-- Progress bar tipis di atas konten (di luar #invApp agar tak ter-swap) --}}
+            <div id="invBar"><span></span></div>
+
+            {{-- Pill spinner mengambang --}}
+            <div id="invLoading">
+                <div><span class="inv-spinner"></span> Memuat data…</div>
             </div>
 
-            <div id="invApp" class="transition-opacity duration-150">
+            <div id="invApp">
                 @include('inventory._app')
             </div>
         </div>
@@ -40,10 +82,8 @@
                 }
 
                 function toggleLoading(on) {
-                    const ov = document.getElementById('invLoading');
-                    if (ov) ov.classList.toggle('hidden', !on);
-                    const a = app();
-                    if (a) { a.classList.toggle('opacity-40', on); a.classList.toggle('pointer-events-none', on); }
+                    const wrap = document.getElementById('invWrap');
+                    if (wrap) wrap.classList.toggle('is-loading', on);
                 }
 
                 // Bangun query dari form (termasuk hidden division/sort/direction), lalu
@@ -67,26 +107,31 @@
                 async function load(url, push = true) {
                     if (ctrl) ctrl.abort();
                     ctrl = new AbortController();
-                    toggleLoading(true);
+                    const mySignal = ctrl.signal;
+                    // Tunda tampilnya indikator agar muat cepat (cache) tidak berkedip.
+                    const showTimer = setTimeout(() => toggleLoading(true), 120);
                     try {
                         const sep = url.includes('?') ? '&' : '?';
                         const res = await fetch(url + sep + 'partial=1', {
                             headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                            signal: ctrl.signal,
+                            signal: mySignal,
                         });
                         if (! res.ok) throw new Error('HTTP ' + res.status);
-                        app().innerHTML = await res.text();
+                        const html = await res.text();
+                        clearTimeout(showTimer);
+                        app().innerHTML = html;
                         if (push) history.pushState({}, '', url);
                         initWidgets();
+                        toggleLoading(false);
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                     } catch (err) {
+                        clearTimeout(showTimer);
+                        // Abort = request digantikan yang baru; biarkan indikator dikelola request itu.
                         if (err.name !== 'AbortError') {
                             toggleLoading(false);
                             alert('Gagal memuat data. Silakan coba lagi.');
                         }
-                        return;
                     }
-                    toggleLoading(false);
                 }
 
                 // (Re)inisialisasi select2 + flatpickr setiap kali konten diganti.
