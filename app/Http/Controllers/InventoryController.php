@@ -90,7 +90,7 @@ class InventoryController extends Controller
         ];
 
         // ---- Urutkan di memori ----
-        $sort      = in_array($request->query('sort'), self::SORTABLE, true) ? $request->query('sort') : 'name';
+        $sort      = in_array($request->query('sort'), self::SORTABLE, true) ? $request->query('sort') : 'sku';
         $direction = $request->query('direction') === 'desc' ? 'desc' : 'asc';
         $sortKey = match ($sort) {
             'stock'     => 'qty',
