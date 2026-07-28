@@ -21,6 +21,42 @@ class InventoryController extends Controller
 
     public function index(Request $request): View
     {
+        $data = $this->prepare($request);
+        $sorted = $data['sorted'];
+
+        // ---- Paginasi di memori ----
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $items = new LengthAwarePaginator(
+            $sorted->forPage($page, $data['perPage'])->values(),
+            $sorted->count(),
+            $data['perPage'],
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        return view('inventory.index', [
+            'items' => $items,
+        ] + $data);
+    }
+
+    /**
+     * Ekspor hasil (dengan filter aktif) ke berkas Excel yang rapi.
+     */
+    public function export(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $data = $this->prepare($request);
+
+        return (new \App\Exports\InventoryExport($data))->download();
+    }
+
+    /**
+     * Bangun seluruh konteks + baris terurut (belum dipaginasi) dari API,
+     * dipakai bersama oleh index() dan export().
+     *
+     * @return array<string, mixed>
+     */
+    private function prepare(Request $request): array
+    {
         $divisions = Division::orderBy('name')->get();
 
         // Data inventory diambil LANGSUNG dari API gudang, di-scope per divisi.
@@ -29,7 +65,8 @@ class InventoryController extends Controller
 
         // Gudang aktif pada divisi terpilih (untuk dropdown + target pemanggilan API).
         $divisionWarehouses = $division
-            ? Warehouse::where('division_id', $division->id)->where('is_active', true)->orderBy('name')->get()
+            ? Warehouse::where('division_id', $division->id)->where('is_active', true)
+                ->orderBy('sequence')->orderBy('name')->get()
             : collect();
 
         // Gudang terpilih harus milik divisi ini; kosong = semua gudang divisi.
@@ -103,24 +140,14 @@ class InventoryController extends Controller
             : $filtered->sortBy($sortKey, SORT_NATURAL | SORT_FLAG_CASE)
         )->values();
 
-        // ---- Paginasi di memori ----
         $perPage = in_array((int) $request->query('per_page'), [10, 25, 50, 100], true) ? (int) $request->query('per_page') : 25;
-        $page = LengthAwarePaginator::resolveCurrentPage();
-        $items = new LengthAwarePaginator(
-            $sorted->forPage($page, $perPage)->values(),
-            $sorted->count(),
-            $perPage,
-            $page,
-            ['path' => $request->url(), 'query' => $request->query()]
-        );
-
         $categories = $rows->pluck('category')->filter()->unique()->sort()->values();
 
-        return view('inventory.index', compact(
-            'divisions', 'division', 'divisionWarehouses', 'selectedWarehouse',
-            'items', 'summary', 'categories', 'sort', 'direction', 'perPage',
-            'errors', 'fetchedAt', 'targets', 'asOfRaw', 'grouped'
-        ));
+        return compact(
+            'divisions', 'division', 'divisionWarehouses', 'selectedWarehouse', 'targets',
+            'sorted', 'summary', 'categories', 'sort', 'direction', 'perPage',
+            'errors', 'fetchedAt', 'asOfRaw', 'grouped'
+        );
     }
 
     /**

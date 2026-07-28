@@ -32,7 +32,8 @@ class ProductCatalogController extends Controller
         $division = $divisions->firstWhere('id', (int) $request->query('division')) ?? $divisions->first();
 
         $divisionWarehouses = $division
-            ? Warehouse::where('division_id', $division->id)->where('is_active', true)->orderBy('name')->get()
+            ? Warehouse::where('division_id', $division->id)->where('is_active', true)
+                ->orderBy('sequence')->orderBy('name')->get()
             : collect();
 
         // Tarik data live tiap gudang lalu gabungkan per SKU.

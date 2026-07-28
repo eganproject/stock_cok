@@ -13,7 +13,7 @@ use Illuminate\View\View;
 
 class WarehouseController extends Controller
 {
-    private const SORTABLE = ['code', 'name', 'capacity', 'is_active', 'last_synced_at', 'created_at'];
+    private const SORTABLE = ['code', 'name', 'sequence', 'capacity', 'is_active', 'last_synced_at', 'created_at'];
 
     public function index(Request $request): View
     {
@@ -163,6 +163,7 @@ class WarehouseController extends Controller
             'division_id' => ['required', 'exists:divisions,id'],
             'code'        => ['required', 'string', 'max:32', 'regex:/^[A-Za-z0-9\-_]+$/', Rule::unique('warehouses', 'code')->ignore($warehouse?->id)],
             'name'        => ['required', 'string', 'max:255'],
+            'sequence'    => ['nullable', 'integer', 'min:0', 'max:65535'],
             'address'     => ['nullable', 'string', 'max:255'],
             'capacity'    => ['nullable', 'integer', 'min:0'],
             'base_url'    => ['nullable', 'url', 'max:255'],
@@ -175,6 +176,7 @@ class WarehouseController extends Controller
         ]);
 
         $validated['is_active'] = $request->boolean('is_active');
+        $validated['sequence']  = (int) $request->input('sequence', 0);
 
         return $validated;
     }

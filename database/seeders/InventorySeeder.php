@@ -45,33 +45,33 @@ class InventorySeeder extends Seeder
         ]);
 
         // ---- Gudang ----
-        // [divisi, kode, nama]
-        // [divisi, kode, nama, konfigurasi API tambahan]
+        // [divisi, kode, nama, urutan tampil, konfigurasi API tambahan]
         // Token API dibaca dari .env (JANGAN hardcode di sini — ikut ter-commit ke Git).
         $warehouses = [
-            [$akrilik, 'NGW',   'Gudang Nanggewer', [
+            [$akrilik, 'NGW',   'Gudang Nanggewer', 1, [
                 'base_url'  => 'https://inventory.cok-analytics.com',
                 'auth_type' => 'bearer',
                 'api_token' => env('GUDANGNGW_API_TOKEN'),
             ]],
-            [$akrilik, 'GD-29', 'Gudang 29', [
+            [$akrilik, 'GD-29', 'Gudang 29', 2, [
                 'base_url'  => 'https://gudang29.com',
                 'auth_type' => 'bearer',
                 'api_token' => env('GUDANG29_API_TOKEN'),
             ]],
-            [$akrilik, 'SBY',   'Gudang Surabaya', [
+            [$akrilik, 'SBY',   'Gudang Surabaya', 3, [
                 'base_url'  => 'https://gudangsurabaya.com',
                 'auth_type' => 'bearer',
                 'api_token' => env('GUDANGSBY_API_TOKEN'),
             ]],
-            [$otomotif, 'GD-24', 'Gudang 24', []],
+            [$otomotif, 'GD-24', 'Gudang 24', 1, []],
         ];
 
-        foreach ($warehouses as [$division, $code, $name, $apiConfig]) {
+        foreach ($warehouses as [$division, $code, $name, $sequence, $apiConfig]) {
             Warehouse::create(array_merge([
                 'division_id' => $division->id,
                 'code'        => $code,
                 'name'        => $name,
+                'sequence'    => $sequence,
                 'timezone'    => 'Asia/Jakarta',
                 'is_active'   => true,
                 'sync_status' => 'never',

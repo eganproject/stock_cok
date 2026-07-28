@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Http;
 class Warehouse extends Model
 {
     protected $fillable = [
-        'division_id', 'code', 'name', 'address', 'capacity',
+        'division_id', 'code', 'name', 'sequence', 'address', 'capacity',
         'base_url', 'auth_type', 'api_token', 'timezone',
         'is_active', 'last_synced_at', 'sync_status', 'last_error',
     ];
@@ -19,6 +19,7 @@ class Warehouse extends Model
     protected function casts(): array
     {
         return [
+            'sequence'       => 'integer',
             'is_active'      => 'boolean',
             'last_synced_at' => 'datetime',
             'api_token'      => 'encrypted',

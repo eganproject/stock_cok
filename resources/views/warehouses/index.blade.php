@@ -105,6 +105,7 @@
                 <table class="tbl min-w-[860px]">
                     <thead>
                         <tr>
+                            <x-th-sort column="sequence" :sort="$sort" :direction="$direction" align="center" class="hidden w-16 text-center sm:table-cell">Urutan</x-th-sort>
                             <x-th-sort column="code" :sort="$sort" :direction="$direction">Gudang</x-th-sort>
                             <th class="hidden md:table-cell">Divisi</th>
                             <th class="hidden lg:table-cell">Alamat</th>
@@ -122,6 +123,7 @@
                                     'division_id' => $w->division_id,
                                     'code'        => $w->code,
                                     'name'        => $w->name,
+                                    'sequence'    => $w->sequence,
                                     'address'     => $w->address,
                                     'capacity'    => $w->capacity,
                                     'base_url'    => $w->base_url,
@@ -132,6 +134,9 @@
                                 ];
                             @endphp
                             <tr>
+                                <td class="hidden text-center sm:table-cell">
+                                    <span class="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-md bg-slate-100 px-1.5 text-xs font-semibold text-slate-600">{{ $w->sequence }}</span>
+                                </td>
                                 <td>
                                     <div class="flex items-center gap-3">
                                         <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-[11px] font-semibold text-white">
@@ -193,7 +198,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <x-empty-row :colspan="7" title="Gudang tidak ditemukan" />
+                            <x-empty-row :colspan="8" title="Gudang tidak ditemukan" />
                         @endforelse
                     </tbody>
                 </table>
@@ -264,6 +269,13 @@
                                         <input type="number" name="capacity" value="{{ old('capacity') }}" min="0"
                                             class="block w-full rounded-xl border-slate-200 text-sm focus:border-slate-900 focus:ring-2 focus:ring-slate-900/15">
                                         @error('capacity') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Urutan Tampil</label>
+                                        <input type="number" name="sequence" value="{{ old('sequence', 0) }}" min="0"
+                                            class="block w-full rounded-xl border-slate-200 text-sm focus:border-slate-900 focus:ring-2 focus:ring-slate-900/15">
+                                        <p class="mt-1 text-[11px] text-slate-400">Urutan kolom gudang di halaman Inventory (kecil = lebih dulu).</p>
+                                        @error('sequence') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                                     </div>
                                     <div>
                                         <label class="mb-1.5 block text-sm font-medium text-slate-700">Zona Waktu</label>
@@ -474,6 +486,7 @@
                         const f = this.$refs.whForm;
                         f.code.value = '';
                         f.name.value = '';
+                        f.sequence.value = 0;
                         f.address.value = '';
                         f.capacity.value = '';
                         f.base_url.value = '';
@@ -493,6 +506,7 @@
                         const f = this.$refs.whForm;
                         f.code.value = w.code ?? '';
                         f.name.value = w.name ?? '';
+                        f.sequence.value = w.sequence ?? 0;
                         f.address.value = w.address ?? '';
                         f.capacity.value = w.capacity ?? '';
                         f.base_url.value = w.base_url ?? '';

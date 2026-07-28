@@ -20,6 +20,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
+    Route::get('/inventory/export', [InventoryController::class, 'export'])->name('inventory.export');
 
     Route::get('/produk', [ProductCatalogController::class, 'index'])->name('products.index');
 
