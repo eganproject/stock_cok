@@ -63,7 +63,11 @@ class InventorySeeder extends Seeder
                 'auth_type' => 'bearer',
                 'api_token' => env('GUDANGSBY_API_TOKEN'),
             ]],
-            [$otomotif, 'GD-24', 'Gudang 24', 1, []],
+            [$otomotif, 'GD-24', 'Gudang 24', 1, [
+                'base_url'  => 'https://gudangseha24.com',
+                'auth_type' => 'bearer',
+                'api_token' => env('GUDANG24_API_TOKEN'),
+            ]],
         ];
 
         foreach ($warehouses as [$division, $code, $name, $sequence, $apiConfig]) {
