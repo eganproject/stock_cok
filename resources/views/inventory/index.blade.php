@@ -8,6 +8,14 @@
             'menipis'  => ['label' => 'Menipis',  'cls' => 'bg-amber-50 text-amber-700',    'dot' => 'bg-amber-500'],
             'habis'    => ['label' => 'Habis',    'cls' => 'bg-rose-50 text-rose-700',      'dot' => 'bg-rose-500'],
         ];
+        // Warna teks qty sesuai status stok (dipakai di kolom per-gudang & total).
+        $qtyColor = [
+            'tersedia' => 'text-slate-800',
+            'menipis'  => 'text-amber-600',
+            'habis'    => 'text-rose-600',
+        ];
+        // Format angka: buang nol desimal yang tidak perlu.
+        $fmtQty = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',');
     @endphp
 
     @if ($divisions->isEmpty())
@@ -160,50 +168,110 @@
                 </div>
             </form>
 
+            {{-- Legenda warna qty (khusus mode gabungan; status ditandai warna angka) --}}
+            @if ($grouped)
+                <div class="flex flex-wrap items-center gap-x-5 gap-y-1.5 border-b border-slate-100 px-4 py-2.5 text-xs text-slate-500 sm:px-6">
+                    <span class="font-medium text-slate-400">Warna angka stok:</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-slate-400"></span> Tersedia</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber-500"></span> <span class="text-amber-600">Menipis</span> (≤ min)</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-rose-500"></span> <span class="text-rose-600">Habis</span> (0)</span>
+                    <span class="text-slate-400">· arahkan kursor ke angka untuk melihat batas minimum</span>
+                </div>
+            @endif
+
             <!-- Table -->
             <div class="overflow-x-auto">
-                <table class="tbl min-w-[820px]">
-                    <thead>
-                        <tr>
-                            <x-th-sort column="sku" :sort="$sort" :direction="$direction">SKU</x-th-sort>
-                            <x-th-sort column="name" :sort="$sort" :direction="$direction">Nama Barang</x-th-sort>
-                            <x-th-sort column="category" :sort="$sort" :direction="$direction" class="hidden lg:table-cell">Kategori</x-th-sort>
-                            <x-th-sort column="warehouse" :sort="$sort" :direction="$direction" class="hidden md:table-cell">Gudang</x-th-sort>
-                            <x-th-sort column="stock" :sort="$sort" :direction="$direction" align="right" class="text-right">Stok</x-th-sort>
-                            <x-th-sort column="status" :sort="$sort" :direction="$direction">Status</x-th-sort>
-                            <x-th-sort column="updated" :sort="$sort" :direction="$direction" class="hidden xl:table-cell">Update</x-th-sort>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($items as $item)
-                            @php $s = $statusMeta[$item['status_key']]; @endphp
+                @if ($grouped)
+                    {{-- MODE SEMUA GUDANG: satu baris per SKU, stok per gudang + total --}}
+                    <table class="tbl min-w-[820px]">
+                        <thead>
                             <tr>
-                                <td class="font-mono text-xs text-slate-500">{{ $item['sku'] }}</td>
-                                <td>
-                                    <p class="font-medium text-slate-800">{{ $item['name'] }}</p>
-                                    <p class="text-xs text-slate-400 lg:hidden">{{ $item['category'] ?? '—' }}</p>
-                                </td>
-                                <td class="hidden text-slate-500 lg:table-cell">{{ $item['category'] ?? '—' }}</td>
-                                <td class="hidden text-slate-500 md:table-cell">{{ $item['warehouse_name'] }}</td>
-                                <td class="text-right">
-                                    <span class="font-semibold {{ $item['qty'] <= $item['min_qty'] ? 'text-rose-600' : 'text-slate-800' }}">{{ rtrim(rtrim(number_format($item['qty'], 3, ',', '.'), '0'), ',') }}</span>
-                                    <span class="block text-[11px] text-slate-400">{{ $item['uom'] }} · min {{ $item['min_qty'] }}</span>
-                                </td>
-                                <td>
-                                    <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium {{ $s['cls'] }}">
-                                        <span class="h-1.5 w-1.5 rounded-full {{ $s['dot'] }}"></span> {{ $s['label'] }}
-                                    </span>
-                                </td>
-                                <td class="hidden text-slate-500 xl:table-cell">
-                                    {{ $item['updated'] ? \Illuminate\Support\Carbon::parse($item['updated'])->translatedFormat('d M Y, H:i') : '—' }}
-                                </td>
+                                <x-th-sort column="sku" :sort="$sort" :direction="$direction">SKU</x-th-sort>
+                                <x-th-sort column="name" :sort="$sort" :direction="$direction">Nama Barang</x-th-sort>
+                                <x-th-sort column="category" :sort="$sort" :direction="$direction" class="hidden lg:table-cell">Kategori</x-th-sort>
+                                @foreach ($divisionWarehouses as $w)
+                                    <th class="text-right" title="{{ $w->code }}">{{ $w->name }}</th>
+                                @endforeach
+                                <x-th-sort column="stock" :sort="$sort" :direction="$direction" align="right" class="text-right">Total Stok</x-th-sort>
+                                <x-th-sort column="updated" :sort="$sort" :direction="$direction" class="hidden xl:table-cell">Update</x-th-sort>
                             </tr>
-                        @empty
-                            <x-empty-row :colspan="7" title="Tidak ada data"
-                                message="Belum ada stok dari API untuk filter ini, atau gudang belum dikonfigurasi." />
-                        @endforelse
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @forelse ($items as $item)
+                                <tr>
+                                    <td class="font-mono text-xs text-slate-500">{{ $item['sku'] }}</td>
+                                    <td>
+                                        <p class="font-medium text-slate-800">{{ $item['name'] }}</p>
+                                        <p class="text-xs text-slate-400 lg:hidden">{{ $item['category'] ?? '—' }}</p>
+                                    </td>
+                                    <td class="hidden text-slate-500 lg:table-cell">{{ $item['category'] ?? '—' }}</td>
+                                    @foreach ($divisionWarehouses as $w)
+                                        @php $cell = $item['per_wh'][$w->code] ?? null; @endphp
+                                        <td class="text-right">
+                                            @if ($cell)
+                                                <span class="font-medium {{ $qtyColor[$cell['status_key']] }}" title="min {{ $fmtQty($cell['min']) }}">{{ $fmtQty($cell['qty']) }}</span>
+                                            @else
+                                                <span class="text-slate-300">—</span>
+                                            @endif
+                                        </td>
+                                    @endforeach
+                                    <td class="text-right">
+                                        <span class="font-semibold {{ $qtyColor[$item['status_key']] }}">{{ $fmtQty($item['qty']) }}</span>
+                                        <span class="block text-[11px] text-slate-400">{{ $item['uom'] }}</span>
+                                    </td>
+                                    <td class="hidden text-slate-500 xl:table-cell">
+                                        {{ $item['updated'] ? \Illuminate\Support\Carbon::parse($item['updated'])->translatedFormat('d M Y, H:i') : '—' }}
+                                    </td>
+                                </tr>
+                            @empty
+                                <x-empty-row :colspan="5 + $divisionWarehouses->count()" title="Tidak ada data"
+                                    message="Belum ada stok dari API untuk filter ini, atau gudang belum dikonfigurasi." />
+                            @endforelse
+                        </tbody>
+                    </table>
+                @else
+                    {{-- MODE SATU GUDANG: satu baris per SKU pada gudang itu --}}
+                    <table class="tbl min-w-[820px]">
+                        <thead>
+                            <tr>
+                                <x-th-sort column="sku" :sort="$sort" :direction="$direction">SKU</x-th-sort>
+                                <x-th-sort column="name" :sort="$sort" :direction="$direction">Nama Barang</x-th-sort>
+                                <x-th-sort column="category" :sort="$sort" :direction="$direction" class="hidden lg:table-cell">Kategori</x-th-sort>
+                                <x-th-sort column="stock" :sort="$sort" :direction="$direction" align="right" class="text-right">Stok</x-th-sort>
+                                <x-th-sort column="status" :sort="$sort" :direction="$direction">Status</x-th-sort>
+                                <x-th-sort column="updated" :sort="$sort" :direction="$direction" class="hidden xl:table-cell">Update</x-th-sort>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($items as $item)
+                                @php $s = $statusMeta[$item['status_key']]; @endphp
+                                <tr>
+                                    <td class="font-mono text-xs text-slate-500">{{ $item['sku'] }}</td>
+                                    <td>
+                                        <p class="font-medium text-slate-800">{{ $item['name'] }}</p>
+                                        <p class="text-xs text-slate-400 lg:hidden">{{ $item['category'] ?? '—' }}</p>
+                                    </td>
+                                    <td class="hidden text-slate-500 lg:table-cell">{{ $item['category'] ?? '—' }}</td>
+                                    <td class="text-right">
+                                        <span class="font-semibold {{ $qtyColor[$item['status_key']] }}">{{ $fmtQty($item['qty']) }}</span>
+                                        <span class="block text-[11px] text-slate-400">{{ $item['uom'] }} · min {{ $fmtQty($item['min_qty']) }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium {{ $s['cls'] }}">
+                                            <span class="h-1.5 w-1.5 rounded-full {{ $s['dot'] }}"></span> {{ $s['label'] }}
+                                        </span>
+                                    </td>
+                                    <td class="hidden text-slate-500 xl:table-cell">
+                                        {{ $item['updated'] ? \Illuminate\Support\Carbon::parse($item['updated'])->translatedFormat('d M Y, H:i') : '—' }}
+                                    </td>
+                                </tr>
+                            @empty
+                                <x-empty-row :colspan="6" title="Tidak ada data"
+                                    message="Belum ada stok dari API untuk filter ini, atau gudang belum dikonfigurasi." />
+                            @endforelse
+                        </tbody>
+                    </table>
+                @endif
             </div>
 
             <x-table-footer :paginator="$items" label="baris stok" />

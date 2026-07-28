@@ -63,12 +63,18 @@ class InventoryController extends Controller
             }
         }
 
+        // Mode "semua gudang" → gabungkan jadi satu baris per SKU dengan stok
+        // per gudang + total. Satu gudang dipilih → tetap satu baris per SKU
+        // gudang itu (tampilan lama).
+        $grouped = $selectedWarehouse === null;
+        $dataset = $grouped ? $this->groupBySku($rows) : $rows;
+
         // ---- Filter di memori ----
         $search   = trim((string) $request->query('search', ''));
         $category = $request->query('category');
         $status   = $request->query('status');
 
-        $filtered = $rows
+        $filtered = $dataset
             ->when($search !== '', fn (Collection $c) => $c->filter(
                 fn ($r) => str_contains(mb_strtolower($r['sku'] . ' ' . $r['name'] . ' ' . (string) $r['category']), mb_strtolower($search))
             ))
@@ -113,8 +119,49 @@ class InventoryController extends Controller
         return view('inventory.index', compact(
             'divisions', 'division', 'divisionWarehouses', 'selectedWarehouse',
             'items', 'summary', 'categories', 'sort', 'direction', 'perPage',
-            'errors', 'fetchedAt', 'targets', 'asOfRaw'
+            'errors', 'fetchedAt', 'targets', 'asOfRaw', 'grouped'
         ));
+    }
+
+    /**
+     * Gabungkan baris per-(SKU × gudang) menjadi satu baris per SKU.
+     * Menyimpan stok tiap gudang di `per_wh` (code => [qty, min, status_key]),
+     * total stok di `qty`, dan status agregat dari total vs jumlah min.
+     *
+     * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $rows
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function groupBySku(Collection $rows): Collection
+    {
+        return $rows->groupBy('sku')->map(function (Collection $group) {
+            $first = $group->first();
+
+            $perWh = [];
+            foreach ($group as $r) {
+                $perWh[$r['warehouse_code']] = [
+                    'qty'        => $r['qty'],
+                    'min'        => $r['min_qty'],
+                    'status_key' => $r['status_key'],
+                ];
+            }
+
+            $total    = (float) $group->sum('qty');
+            $totalMin = (float) $group->sum('min_qty');
+            $statusKey = $total <= 0 ? 'habis' : ($total <= $totalMin ? 'menipis' : 'tersedia');
+
+            return [
+                'sku'          => $first['sku'],
+                'name'         => $first['name'],
+                'category'     => $first['category'],
+                'uom'          => $first['uom'],
+                'qty'          => $total,
+                'min_qty'      => $totalMin,
+                'per_wh'       => $perWh,
+                'status_key'   => $statusKey,
+                'status_order' => $statusKey === 'habis' ? 0 : ($statusKey === 'menipis' ? 1 : 2),
+                'updated'      => $group->max('updated'),
+            ];
+        })->values();
     }
 
     /**
